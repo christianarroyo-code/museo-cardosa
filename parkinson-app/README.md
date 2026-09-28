@@ -10,7 +10,7 @@ App web (se instala en el móvil como una app) para registrar los **periodos OFF
 
 | Pestaña | Qué hace |
 |---|---|
-| **Hoy** | Botón grande rojo "Empieza un OFF" / verde "Ya estoy bien". Intensidad y síntomas opcionales. Botón de toma de medicación (se asocia a la toma pautada más cercana). Discinesias, comida (normal / rica en proteína), caída, nota. Línea del día. |
+| **Hoy** | Botones de un solo toque que guardan al momento con día y hora: inicio/fin de OFF, toma de medicación, discinesias, caída, comida (normal o con proteína), temblor fuerte, bloqueo al andar, mareo, somnolencia, dolor, alucinaciones y nota. Lista "Lo apuntado hoy" (toca para corregir la hora). Línea del día. |
 | **Historial** | Todo lo registrado; se puede corregir, borrar o añadir algo pasado. |
 | **Estadísticas** | 7 / 14 / 30 / 90 días. Indicadores, patrones detectados y gráficas. |
 | **Informe** | Resumen imprimible / PDF para la consulta + exportación CSV (Excel). |

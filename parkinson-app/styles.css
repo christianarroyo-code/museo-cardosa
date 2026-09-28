@@ -263,7 +263,7 @@ dialog .dlg-actions .btn { flex: 1 1 120px; }
   display: none; gap: 14px; align-items: center; z-index: 20; width: min(520px, calc(100vw - 32px));
 }
 .toast.show { display: flex; }
-.toast span { flex: 1; }
+.toast span { flex: 1; font-size: 1.05rem; font-weight: 600; }
 .toast button { background: none; border: none; color: var(--bg); font-weight: 800; text-decoration: underline; cursor: pointer; min-height: 40px; }
 
 /* Gráficas */

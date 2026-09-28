@@ -26,7 +26,22 @@ const EVENT_TYPES = {
   meal: { label: 'Comida', icon: '🍽️' },
   fall: { label: 'Caída', icon: '⚠️' },
   note: { label: 'Nota', icon: '📝' },
+  symptom: { label: 'Síntoma', icon: '•' },
 };
+// Síntomas sueltos que se apuntan con un toque desde "Hoy"
+const QUICK_SYMPTOMS = {
+  tremor: { label: 'Temblor fuerte', icon: '✋' },
+  freezing: { label: 'Bloqueo al andar', icon: '🚶' },
+  dizzy: { label: 'Mareo', icon: '💫' },
+  sleepy: { label: 'Somnolencia', icon: '😴' },
+  pain: { label: 'Dolor / calambre', icon: '🤕' },
+  hallucination: { label: 'Alucinaciones', icon: '👁️' },
+};
+function eventInfo(o) {
+  if (o.type === 'symptom') return QUICK_SYMPTOMS[o.symptom] || { label: 'Síntoma', icon: '•' };
+  if (o.type === 'meal' && o.protein) return { label: 'Comida con proteína', icon: '🍗' };
+  return EVENT_TYPES[o.type] || EVENT_TYPES.note;
+}
 
 /* ---------- Estado ---------- */
 
@@ -123,6 +138,10 @@ function fmtDur(min) {
 }
 function fmtHours(min) {
   return (min / 60).toLocaleString('es-ES', { maximumFractionDigits: 1 }) + ' h';
+}
+function savedMsg(what, iso) {
+  const d = dayKey(iso);
+  return `✅ ${what} · ${fmtDay(d, { weekday: 'long', day: 'numeric', month: 'long' })}, ${fmtTime(iso)}`;
 }
 function toLocalInput(iso) {
   if (!iso) return '';
@@ -240,12 +259,13 @@ $('#btn-off').addEventListener('click', () => {
     cur.end = new Date().toISOString();
     save();
     vibrate();
-    toast(`OFF terminado · duró ${fmtDur(epDuration(cur))}`);
+    toast(savedMsg(`Fin del OFF (duró ${fmtDur(epDuration(cur))})`, cur.end));
   } else {
-    state.episodes.push({ id: uid(), kind: 'off', start: new Date().toISOString(), end: null, intensity: null, symptoms: [], note: '' });
+    const start = new Date().toISOString();
+    state.episodes.push({ id: uid(), kind: 'off', start, end: null, intensity: null, symptoms: [], note: '' });
     save();
     vibrate();
-    toast('OFF registrado. Pulsa el botón verde cuando vuelva a estar bien.');
+    toast(savedMsg('Inicio de OFF', start));
   }
   renderAll();
 });
@@ -255,10 +275,11 @@ $('#btn-dysk').addEventListener('click', () => {
   const cur = activeEpisode('dysk');
   if (cur) {
     cur.end = new Date().toISOString();
-    toast(`Discinesias terminadas · ${fmtDur(epDuration(cur))}`);
+    toast(savedMsg(`Fin de discinesias (${fmtDur(epDuration(cur))})`, cur.end));
   } else {
-    state.episodes.push({ id: uid(), kind: 'dysk', start: new Date().toISOString(), end: null, intensity: null, symptoms: [], note: '' });
-    toast('Discinesias registradas. Pulsa otra vez cuando paren.');
+    const start = new Date().toISOString();
+    state.episodes.push({ id: uid(), kind: 'dysk', start, end: null, intensity: null, symptoms: [], note: '' });
+    toast(savedMsg('Inicio de discinesias', start));
   }
   save();
   vibrate();
@@ -284,41 +305,35 @@ $('#btn-dose').addEventListener('click', () => {
   state.doses.push({ id: uid(), time: now.toISOString(), med: sch ? sch.med : '', scheduled: sch ? sch.time : null });
   save();
   vibrate();
-  toast(sch ? `Toma de las ${sch.time} registrada (${fmtTime(now.toISOString())})` : 'Toma registrada');
+  toast(savedMsg(sch ? `Toma de las ${sch.time}` : 'Toma', now.toISOString()));
   renderAll();
 });
 
+// Botones de un solo toque: guardan al momento con día y hora.
 $$('[data-event]').forEach(b => b.addEventListener('click', async () => {
-  const type = b.dataset.event;
-  if (type === 'meal') {
+  const [type, sym] = b.dataset.event.split(':');
+  const time = new Date().toISOString();
+  let ev;
+  if (type === 'note') {
     const r = await openDialog(
-      `<h3>🍽️ Comida</h3><p class="muted">Las comidas con mucha proteína (carne, pescado, huevo, lácteos, legumbres) pueden restar efecto a la levodopa.</p>`,
-      [{ label: 'Comida normal', value: 'normal' }, { label: 'Con mucha proteína', value: 'protein', cls: 'primary' }, { label: 'Cancelar', value: 'cancel' }]);
-    if (r === 'cancel') return;
-    snapshot();
-    state.events.push({ id: uid(), type, time: new Date().toISOString(), note: '', protein: r === 'protein' });
-    toast('Comida registrada');
-  } else if (type === 'fall') {
-    const r = await openDialog(
-      `<h3>⚠️ Caída</h3><label class="f"><span>¿Qué ha pasado? (opcional)</span><textarea name="note" placeholder="Ej.: al girarse en la cocina, sin golpe"></textarea></label>`,
-      [{ label: 'Guardar caída', value: 'ok', cls: 'primary' }, { label: 'Cancelar', value: 'cancel' }]);
-    if (r === 'cancel') return;
-    snapshot();
-    state.events.push({ id: uid(), type, time: new Date().toISOString(), note: $('#dlg-form [name=note]').value.trim() });
-    toast('Caída registrada');
-  } else {
-    const r = await openDialog(
-      `<h3>📝 Nota</h3><label class="f"><span>Cualquier cosa que quieras recordar para la consulta</span><textarea name="note" required placeholder="Ej.: mala noche, alucinaciones, estreñimiento, mareo al levantarse…"></textarea></label>`,
+      `<h3>📝 Nota</h3><label class="f"><span>Cualquier cosa que quieras recordar para la consulta</span><textarea name="note" required placeholder="Ej.: mala noche, estreñimiento, mareo al levantarse…"></textarea></label>`,
       [{ label: 'Guardar nota', value: 'ok', cls: 'primary' }, { label: 'Cancelar', value: 'cancel' }]);
     if (r === 'cancel') return;
     const note = $('#dlg-form [name=note]').value.trim();
     if (!note) return;
-    snapshot();
-    state.events.push({ id: uid(), type, time: new Date().toISOString(), note });
-    toast('Nota guardada');
+    ev = { id: uid(), type, time, note };
+  } else if (type === 'meal' || type === 'mealp') {
+    ev = { id: uid(), type: 'meal', time, note: '', protein: type === 'mealp' };
+  } else if (type === 'sym') {
+    ev = { id: uid(), type: 'symptom', symptom: sym, time, note: '' };
+  } else {
+    ev = { id: uid(), type, time, note: '' };
   }
+  snapshot();
+  state.events.push(ev);
   save();
   vibrate();
+  toast(savedMsg(eventInfo(ev).label, time));
   renderAll();
 }));
 
@@ -397,6 +412,13 @@ function renderToday() {
   ].map(([k, v]) => `<div class="kpi"><div class="v">${v}</div><div class="k">${k}</div></div>`).join('');
 
   renderTimeline($('#today-timeline'), today);
+
+  // Lista de lo registrado hoy, con la hora
+  const recs = allRecords().filter(r => dayKey(r.t) === today || (r.rtype === 'ep' && r.obj.end && dayKey(r.obj.end) === today));
+  $('#today-list').innerHTML = recs.length
+    ? recs.map(r => { const d = describe(r); return `<button class="entry" data-rtype="${r.rtype}" data-id="${r.obj.id}">${d.tag}<div class="body"><div class="t">${d.t}</div>${d.s ? `<div class="s">${d.s}</div>` : ''}</div></button>`; }).join('')
+    : '<p class="muted" style="margin:0">Aún no hay nada apuntado hoy.</p>';
+  $$('#today-list .entry').forEach(b => b.addEventListener('click', () => editRecord(b.dataset.rtype, b.dataset.id)));
 }
 
 function renderTimeline(el, key) {
@@ -450,10 +472,10 @@ function describe(rec) {
       s: esc(o.med),
     };
   }
-  const et = EVENT_TYPES[o.type] || EVENT_TYPES.note;
+  const et = eventInfo(o);
   return {
     tag: `<span class="tag event">${et.icon} ${et.label}</span>`,
-    t: fmtTime(o.time) + (o.protein ? ' · rica en proteína' : ''),
+    t: fmtTime(o.time),
     s: esc(o.note),
   };
 }
@@ -502,7 +524,7 @@ async function editRecord(rtype, id, isNew = false, draft = null) {
       <label class="f"><span>Hora</span><input type="datetime-local" name="time" required value="${toLocalInput(o.time)}"></label>
       <label class="f"><span>Medicamento / dosis</span><input type="text" name="med" value="${esc(o.med)}"></label>`;
   } else {
-    body = `<h3>${EVENT_TYPES[o.type].icon} ${EVENT_TYPES[o.type].label}</h3>
+    body = `<h3>${eventInfo(o).icon} ${eventInfo(o).label}</h3>
       <label class="f"><span>Hora</span><input type="datetime-local" name="time" required value="${toLocalInput(o.time)}"></label>
       ${o.type === 'meal' ? `<label class="f row" style="gap:8px"><input type="checkbox" name="protein" ${o.protein ? 'checked' : ''} style="flex:0;width:24px;height:24px"> <span style="margin:0">Rica en proteína</span></label>` : ''}
       <label class="f"><span>Nota</span><textarea name="note">${esc(o.note)}</textarea></label>`;
@@ -563,6 +585,7 @@ $('#btn-add-past').addEventListener('click', async () => {
     { label: '💊 Toma', value: 'dose' },
     { label: '🍽️ Comida', value: 'meal' },
     { label: '⚠️ Caída', value: 'fall' },
+    ...Object.entries(QUICK_SYMPTOMS).map(([k, v]) => ({ label: `${v.icon} ${v.label}`, value: 'sym:' + k })),
     { label: '📝 Nota', value: 'note' },
     { label: 'Cancelar', value: 'cancel' },
   ]);
@@ -574,6 +597,8 @@ $('#btn-add-past').addEventListener('click', async () => {
   } else if (r === 'dose') {
     const sch = closestScheduled(now);
     await editRecord('dose', null, true, { id: uid(), time: now.toISOString(), med: sch ? sch.med : '', scheduled: null });
+  } else if (r.startsWith('sym:')) {
+    await editRecord('event', null, true, { id: uid(), type: 'symptom', symptom: r.slice(4), time: now.toISOString(), note: '' });
   } else {
     await editRecord('event', null, true, { id: uid(), type: r, time: now.toISOString(), note: '', protein: false });
   }
@@ -691,6 +716,10 @@ function computeStats(fromKey, toKey) {
   const intCount = { 1: 0, 2: 0, 3: 0 };
   offs.forEach(e => { if (e.intensity) intCount[e.intensity]++; });
 
+  // Síntomas sueltos
+  const quickSym = {};
+  events.filter(e => e.type === 'symptom').forEach(e => { quickSym[e.symptom] = (quickSym[e.symptom] || 0) + 1; });
+
   // Caídas
   const falls = events.filter(e => e.type === 'fall');
   const fallsInOff = falls.filter(f => state.episodes.some(e => e.kind === 'off' && f.time >= e.start && f.time <= (e.end || new Date().toISOString()))).length;
@@ -710,7 +739,7 @@ function computeStats(fromKey, toKey) {
     proteinMeals: proteinMeals.length, proteinOff: offAfter(proteinMeals),
     normalMeals: normalMeals.length, normalOff: offAfter(normalMeals),
     dyskLat, medDyskLat: median(dyskLat), dyskTotal: recorded.reduce((s, d) => s + d.dyskMin, 0),
-    symCount, intCount, falls: falls.length, fallsInOff,
+    symCount, intCount, quickSym, falls: falls.length, fallsInOff,
     dosesTaken: dosesIn.length, expected, medDelay: median(delays.map(Math.abs)),
     notes: events.filter(e => e.type === 'note'),
   };
@@ -996,6 +1025,12 @@ function statsContent(s, { forReport = false } = {}) {
     c6.insertAdjacentHTML('beforeend', hbarsHTML([1, 2, 3].map(k => ({ label: INTENSITY[k], n: s.intCount[k] })), intTotal));
   }
 
+  const qRows = Object.entries(QUICK_SYMPTOMS).map(([k, v]) => ({ label: v.label, n: s.quickSym[k] || 0 })).filter(r => r.n).sort((a, b) => b.n - a.n);
+  if (qRows.length) {
+    const cq = sec('Otros síntomas apuntados', 'Veces que se pulsó cada botón de síntoma en el periodo');
+    cq.insertAdjacentHTML('beforeend', hbarsHTML(qRows, qRows.reduce((a, r) => a + r.n, 0)));
+  }
+
   // Medicación
   const c7 = sec('Medicación');
   c7.insertAdjacentHTML('beforeend', `<p>Tomas registradas: <b>${s.dosesTaken}</b> de ${s.expected} pautadas en los días con registros (${pct(s.dosesTaken, s.expected)} %).${s.medDelay != null ? ` Desviación mediana respecto a la hora pautada: <b>${fmtDur(s.medDelay)}</b>.` : ''}</p>`);
@@ -1089,7 +1124,7 @@ $('#btn-csv').addEventListener('click', () => {
     } else if (r.rtype === 'dose') {
       lines.push(['Toma', fmtDT(o.time), '', '', '', '', o.med, o.scheduled || '', '', ''].map(q).join(';'));
     } else {
-      lines.push([EVENT_TYPES[o.type].label, fmtDT(o.time), '', '', '', '', '', '', o.type === 'meal' ? (o.protein ? 'sí' : 'no') : '', o.note].map(q).join(';'));
+      lines.push([eventInfo(o).label, fmtDT(o.time), '', '', '', '', '', '', o.type === 'meal' ? (o.protein ? 'sí' : 'no') : '', o.note].map(q).join(';'));
     }
   }
   download(`diario-parkinson-${dayKey(new Date())}.csv`, '﻿' + lines.join('\r\n'), 'text/csv;charset=utf-8');
