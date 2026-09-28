@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Diario Párkinson</title>
+  <meta name="description" content="Diario de periodos OFF, medicación y síntomas para llevar a la consulta de neurología.">
+  <meta name="theme-color" content="#2a78d6">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Diario Párkinson">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon.svg">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="app-header">
+    <h1>Diario Párkinson</h1>
+    <span class="who" id="who"></span>
+  </header>
+
+  <main>
+    <!-- HOY -->
+    <section class="view active" id="view-today" aria-label="Hoy">
+      <div class="status on" id="status">
+        <div class="label">Ahora mismo</div>
+        <div class="state" id="status-state">ON</div>
+        <div class="since" id="status-since"></div>
+      </div>
+
+      <button class="btn-huge start-off" id="btn-off"></button>
+
+      <div class="card" id="off-details" hidden>
+        <h3>¿Cómo es este OFF? <span class="muted small">(opcional)</span></h3>
+        <div class="seg" id="cur-intensity" role="group" aria-label="Intensidad"></div>
+        <div class="spacer"></div>
+        <div class="chips" id="cur-symptoms" role="group" aria-label="Síntomas"></div>
+      </div>
+
+      <button class="btn primary block" id="btn-dose" style="min-height:76px;font-size:1.25rem;margin-bottom:6px">💊 He tomado la medicación</button>
+      <p class="muted small" id="next-dose" style="margin:0 0 14px;text-align:center"></p>
+
+      <div class="grid2 quick" style="margin-bottom:14px">
+        <button class="btn" id="btn-dysk"><span class="ico">〰️</span><span id="dysk-label">Discinesias</span></button>
+        <button class="btn" data-event="meal"><span class="ico">🍽️</span>Comida</button>
+        <button class="btn" data-event="fall"><span class="ico">⚠️</span>Caída</button>
+        <button class="btn" data-event="note"><span class="ico">📝</span>Nota</button>
+      </div>
+
+      <div class="card">
+        <h3>Hoy</h3>
+        <div class="kpis" id="today-kpis" style="margin-bottom:8px"></div>
+        <div class="timeline" id="today-timeline" aria-hidden="true"></div>
+        <div class="tl-axis"><span>0h</span><span>6h</span><span>12h</span><span>18h</span><span>24h</span></div>
+        <div class="legend">
+          <span><i style="background:var(--off)"></i>OFF</span>
+          <span><i style="background:var(--dysk)"></i>Discinesias</span>
+          <span><i style="background:var(--accent)"></i>Toma</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- HISTORIAL -->
+    <section class="view" id="view-history" aria-label="Historial">
+      <h2>Historial</h2>
+      <div class="row" style="margin-bottom:12px">
+        <button class="btn" id="btn-add-past">➕ Añadir un registro pasado</button>
+      </div>
+      <p class="muted small">Toca cualquier registro para corregir horas, síntomas o borrarlo.</p>
+      <div id="history-list"></div>
+    </section>
+
+    <!-- ESTADÍSTICAS -->
+    <section class="view" id="view-stats" aria-label="Estadísticas">
+      <h2>Estadísticas</h2>
+      <div class="seg" id="range-sel" role="group" aria-label="Periodo" style="margin-bottom:14px"></div>
+      <div id="stats-body"></div>
+    </section>
+
+    <!-- INFORME -->
+    <section class="view" id="view-report" aria-label="Informe">
+      <div class="card no-print">
+        <h2 style="margin-top:0">Informe para la neuróloga</h2>
+        <div class="row">
+          <label class="f"><span>Desde</span><input type="date" id="rep-from"></label>
+          <label class="f"><span>Hasta</span><input type="date" id="rep-to"></label>
+        </div>
+        <label class="f"><span>Preguntas / comentarios para la consulta</span>
+          <textarea id="rep-questions" placeholder="Ej.: ¿Podemos adelantar la toma de la tarde? Por la noche le cuesta darse la vuelta en la cama…"></textarea>
+        </label>
+        <div class="row">
+          <button class="btn primary" id="btn-print">🖨️ Imprimir / Guardar PDF</button>
+          <button class="btn" id="btn-csv">⬇️ Exportar Excel (CSV)</button>
+        </div>
+      </div>
+      <div class="card report" id="report"></div>
+    </section>
+
+    <!-- AJUSTES -->
+    <section class="view" id="view-settings" aria-label="Ajustes">
+      <h2>Ajustes</h2>
+      <div class="card">
+        <label class="f"><span>Nombre de la paciente</span><input type="text" id="set-name" placeholder="Ej.: Carmen"></label>
+        <div class="row">
+          <label class="f"><span>Se levanta a las</span><input type="time" id="set-wake"></label>
+          <label class="f"><span>Se acuesta a las</span><input type="time" id="set-sleep"></label>
+        </div>
+        <p class="muted small" style="margin-top:0">Sirve para calcular el % del día despierta que pasa en OFF.</p>
+      </div>
+
+      <div class="card">
+        <h3>Pauta de medicación</h3>
+        <p class="muted small">Las tomas que tiene pautadas. Al pulsar "He tomado la medicación" se asocia a la toma más cercana.</p>
+        <div id="dose-schedule"></div>
+        <button class="btn small" id="btn-add-dose">➕ Añadir toma</button>
+        <label class="f" style="margin-top:14px"><span>Fecha del último cambio de medicación (para comparar antes/después)</span><input type="date" id="set-medchange"></label>
+      </div>
+
+      <div class="card">
+        <h3>Copia de seguridad</h3>
+        <p class="muted small">Los datos se guardan solo en este móvil. Haz una copia de vez en cuando y guárdala (en Drive, WhatsApp a ti mismo, etc.).</p>
+        <div class="row">
+          <button class="btn" id="btn-backup">💾 Descargar copia</button>
+          <button class="btn" id="btn-restore">📂 Restaurar copia</button>
+        </div>
+        <input type="file" id="file-restore" accept="application/json,.json" hidden>
+      </div>
+
+      <div class="card">
+        <h3>Otros</h3>
+        <div class="row">
+          <button class="btn" id="btn-demo">🧪 Cargar datos de ejemplo</button>
+          <button class="btn danger" id="btn-wipe">🗑️ Borrar todo</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <nav class="tabs" role="tablist">
+    <button role="tab" data-view="today" aria-selected="true"><span class="ico">🏠</span>Hoy</button>
+    <button role="tab" data-view="history"><span class="ico">📋</span>Historial</button>
+    <button role="tab" data-view="stats"><span class="ico">📊</span>Estadísticas</button>
+    <button role="tab" data-view="report"><span class="ico">🩺</span>Informe</button>
+    <button role="tab" data-view="settings"><span class="ico">⚙️</span>Ajustes</button>
+  </nav>
+
+  <dialog id="dlg">
+    <form method="dialog" id="dlg-form">
+      <div class="dlg-body" id="dlg-body"></div>
+      <div class="dlg-actions" id="dlg-actions"></div>
+    </form>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"><span id="toast-msg"></span><button id="toast-undo">Deshacer</button></div>
+  <div class="tip" id="tip"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+{
+  "name": "Diario Párkinson",
+  "short_name": "Diario PK",
+  "description": "Registro de periodos OFF, medicación y síntomas para la consulta de neurología.",
+  "lang": "es",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f6f5f1",
+  "theme_color": "#2a78d6",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
