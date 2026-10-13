@@ -4,13 +4,13 @@ App web (se instala en el móvil como una app) para registrar los **periodos OFF
 
 - Sin servidor ni cuentas: los datos se guardan **solo en el móvil** (localStorage). Hay copia de seguridad en *Ajustes*.
 - Funciona sin conexión (service worker).
-- Botones grandes, pensados para usarse en pleno OFF.
+- Pantalla principal con solo 4 botones grandes, pensada para una persona mayor y para usarse en pleno OFF.
 
 ## Qué registra
 
 | Pestaña | Qué hace |
 |---|---|
-| **Hoy** | Botones de un solo toque que guardan al momento con día y hora: inicio/fin de OFF, toma de medicación, discinesias, caída, comida (normal o con proteína), temblor fuerte, bloqueo al andar, mareo, somnolencia, dolor, alucinaciones y nota. Lista "Lo apuntado hoy" (toca para corregir la hora). Línea del día. |
+| **Botones** (pantalla principal) | Solo 4 botones enormes: **OFF** (me encuentro mal), **ON** (ya estoy bien), **PASTILLA** (me la he tomado) y **CAÍDA**. Cada toque guarda día y hora y muestra una confirmación a pantalla completa con "VALE" y "Me he equivocado, borrar". Durante 1 segundo ignora toques para evitar dobles pulsaciones por el temblor. Si pulsa PASTILLA dos veces en 20 min, pregunta antes de apuntar otra. El menú está escondido en "Zona familia". |
 | **Historial** | Todo lo registrado; se puede corregir, borrar o añadir algo pasado. |
 | **Estadísticas** | 7 / 14 / 30 / 90 días. Indicadores, patrones detectados y gráficas. |
 | **Informe** | Resumen imprimible / PDF para la consulta + exportación CSV (Excel). |

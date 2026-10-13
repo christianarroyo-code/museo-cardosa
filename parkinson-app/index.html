@@ -20,58 +20,22 @@
   </header>
 
   <main>
-    <!-- HOY -->
-    <section class="view active" id="view-today" aria-label="Hoy">
-      <div class="status on" id="status">
-        <div class="label">Ahora mismo</div>
-        <div class="state" id="status-state">ON</div>
+    <!-- HOY: solo cuatro botones grandes -->
+    <section class="view active home" id="view-today" aria-label="Botones">
+      <div class="status on" id="status" role="status">
+        <div class="label" id="status-date"></div>
+        <div class="state" id="status-state">Ahora: ON</div>
         <div class="since" id="status-since"></div>
       </div>
 
-      <button class="btn-huge start-off" id="btn-off"></button>
-
-      <div class="card" id="off-details" hidden>
-        <h3>¿Cómo es este OFF? <span class="muted small">(opcional)</span></h3>
-        <div class="seg" id="cur-intensity" role="group" aria-label="Intensidad"></div>
-        <div class="spacer"></div>
-        <div class="chips" id="cur-symptoms" role="group" aria-label="Síntomas"></div>
+      <div class="big-grid">
+        <button class="big off" id="btn-off"><span class="ico">🔴</span><span class="txt">OFF</span><span class="sub">Me encuentro mal</span></button>
+        <button class="big on" id="btn-on"><span class="ico">🟢</span><span class="txt">ON</span><span class="sub">Ya estoy bien</span></button>
+        <button class="big pill" id="btn-dose"><span class="ico">💊</span><span class="txt">PASTILLA</span><span class="sub">Me la he tomado</span></button>
+        <button class="big fall" id="btn-fall"><span class="ico">⚠️</span><span class="txt">CAÍDA</span><span class="sub">Me he caído</span></button>
       </div>
 
-      <button class="btn primary block" id="btn-dose" style="min-height:76px;font-size:1.25rem;margin-bottom:6px">💊 He tomado la medicación</button>
-      <p class="muted small" id="next-dose" style="margin:0 0 14px;text-align:center"></p>
-
-      <div class="grid2 quick" style="margin-bottom:14px">
-        <button class="btn" id="btn-dysk"><span class="ico">〰️</span><span id="dysk-label">Discinesias</span></button>
-        <button class="btn" data-event="fall"><span class="ico">⚠️</span>Caída</button>
-        <button class="btn" data-event="meal"><span class="ico">🍽️</span>Comida</button>
-        <button class="btn" data-event="mealp"><span class="ico">🍗</span>Comida con proteína</button>
-        <button class="btn" data-event="sym:tremor"><span class="ico">✋</span>Temblor fuerte</button>
-        <button class="btn" data-event="sym:freezing"><span class="ico">🚶</span>Bloqueo al andar</button>
-        <button class="btn" data-event="sym:dizzy"><span class="ico">💫</span>Mareo</button>
-        <button class="btn" data-event="sym:sleepy"><span class="ico">😴</span>Somnolencia</button>
-        <button class="btn" data-event="sym:pain"><span class="ico">🤕</span>Dolor / calambre</button>
-        <button class="btn" data-event="sym:hallucination"><span class="ico">👁️</span>Alucinaciones</button>
-        <button class="btn" data-event="note"><span class="ico">📝</span>Nota</button>
-      </div>
-      <p class="muted small" style="margin:-6px 0 14px;text-align:center">Un toque y queda guardado con el día y la hora.</p>
-
-      <div class="card">
-        <h3>Lo apuntado hoy</h3>
-        <p class="muted small" style="margin-top:-4px">Toca un registro para cambiar la hora, añadir un comentario o borrarlo.</p>
-        <div id="today-list"></div>
-      </div>
-
-      <div class="card">
-        <h3>Hoy</h3>
-        <div class="kpis" id="today-kpis" style="margin-bottom:8px"></div>
-        <div class="timeline" id="today-timeline" aria-hidden="true"></div>
-        <div class="tl-axis"><span>0h</span><span>6h</span><span>12h</span><span>18h</span><span>24h</span></div>
-        <div class="legend">
-          <span><i style="background:var(--off)"></i>OFF</span>
-          <span><i style="background:var(--dysk)"></i>Discinesias</span>
-          <span><i style="background:var(--accent)"></i>Toma</span>
-        </div>
-      </div>
+      <button class="family-link" id="btn-family">Zona familia (historial, informe…) ›</button>
     </section>
 
     <!-- HISTORIAL -->
@@ -151,7 +115,7 @@
   </main>
 
   <nav class="tabs" role="tablist">
-    <button role="tab" data-view="today" aria-selected="true"><span class="ico">🏠</span>Hoy</button>
+    <button role="tab" data-view="today" aria-selected="true"><span class="ico">🏠</span>Botones</button>
     <button role="tab" data-view="history"><span class="ico">📋</span>Historial</button>
     <button role="tab" data-view="stats"><span class="ico">📊</span>Estadísticas</button>
     <button role="tab" data-view="report"><span class="ico">🩺</span>Informe</button>
@@ -167,6 +131,18 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"><span id="toast-msg"></span><button id="toast-undo">Deshacer</button></div>
   <div class="tip" id="tip"></div>
+
+  <!-- Confirmación a pantalla completa tras pulsar un botón -->
+  <div class="confirm" id="confirm" hidden role="alertdialog" aria-live="assertive">
+    <div class="confirm-box">
+      <div class="c-ico" id="c-ico"></div>
+      <div class="c-title" id="c-title"></div>
+      <div class="c-what" id="c-what"></div>
+      <div class="c-when" id="c-when"></div>
+      <button class="c-ok" id="c-ok">VALE</button>
+      <button class="c-undo" id="c-undo">Me he equivocado, borrar</button>
+    </div>
+  </div>
 
   <script src="app.js"></script>
 </body>

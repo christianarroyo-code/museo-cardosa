@@ -249,42 +249,8 @@ function intensityHTML(val) {
 }
 
 /* =========================================================
-   HOY
+   HOY — cuatro botones grandes: OFF, ON, PASTILLA, CAÍDA
    ========================================================= */
-
-$('#btn-off').addEventListener('click', () => {
-  snapshot();
-  const cur = activeEpisode('off');
-  if (cur) {
-    cur.end = new Date().toISOString();
-    save();
-    vibrate();
-    toast(savedMsg(`Fin del OFF (duró ${fmtDur(epDuration(cur))})`, cur.end));
-  } else {
-    const start = new Date().toISOString();
-    state.episodes.push({ id: uid(), kind: 'off', start, end: null, intensity: null, symptoms: [], note: '' });
-    save();
-    vibrate();
-    toast(savedMsg('Inicio de OFF', start));
-  }
-  renderAll();
-});
-
-$('#btn-dysk').addEventListener('click', () => {
-  snapshot();
-  const cur = activeEpisode('dysk');
-  if (cur) {
-    cur.end = new Date().toISOString();
-    toast(savedMsg(`Fin de discinesias (${fmtDur(epDuration(cur))})`, cur.end));
-  } else {
-    const start = new Date().toISOString();
-    state.episodes.push({ id: uid(), kind: 'dysk', start, end: null, intensity: null, symptoms: [], note: '' });
-    toast(savedMsg('Inicio de discinesias', start));
-  }
-  save();
-  vibrate();
-  renderAll();
-});
 
 function closestScheduled(date) {
   const sched = state.settings.schedule;
@@ -298,127 +264,116 @@ function closestScheduled(date) {
   return best;
 }
 
-$('#btn-dose').addEventListener('click', () => {
-  snapshot();
-  const now = new Date();
-  const sch = closestScheduled(now);
-  state.doses.push({ id: uid(), time: now.toISOString(), med: sch ? sch.med : '', scheduled: sch ? sch.time : null });
+const cap = t => t.charAt(0).toUpperCase() + t.slice(1);
+function fmtWhen(iso) {
+  return `${cap(fmtDay(dayKey(iso)))} · ${fmtTime(iso)} h`;
+}
+
+/* Confirmación a pantalla completa. Durante el primer segundo ignora
+   los toques, para que un temblor o un doble toque no pulse nada más. */
+const CONFIRM_ICON = { off: '🔴', on: '🟢', pill: '💊', fall: '⚠️', info: 'ℹ️' };
+let confirmTimer = null;
+let confirmReadyAt = 0;
+let confirmResolve = null;
+
+function showConfirm({ kind, title, what = '', when = '', undo = false, ask = false }) {
+  const el = $('#confirm');
+  el.className = 'confirm ' + kind;
+  $('#c-ico').textContent = CONFIRM_ICON[kind] || CONFIRM_ICON.info;
+  $('#c-title').textContent = title;
+  $('#c-what').textContent = what;
+  $('#c-when').textContent = when;
+  $('#c-ok').textContent = ask ? 'SÍ, APUNTAR' : 'VALE';
+  $('#c-undo').textContent = ask ? 'NO' : 'Me he equivocado, borrar';
+  $('#c-undo').hidden = !(undo || ask);
+  el.hidden = false;
+  confirmReadyAt = Date.now() + 1000;
+  clearTimeout(confirmTimer);
+  if (!ask) confirmTimer = setTimeout(() => closeConfirm('ok'), 7000);
+  if (confirmResolve) confirmResolve('ok');
+  return new Promise(r => { confirmResolve = r; });
+}
+function closeConfirm(v) {
+  clearTimeout(confirmTimer);
+  $('#confirm').hidden = true;
+  const r = confirmResolve;
+  confirmResolve = null;
+  if (r) r(v);
+}
+$('#c-ok').addEventListener('click', () => { if (Date.now() >= confirmReadyAt) closeConfirm('ok'); });
+$('#c-undo').addEventListener('click', () => { if (Date.now() >= confirmReadyAt) closeConfirm('undo'); });
+
+/* Guarda un registro, enseña la confirmación y permite borrarlo. */
+async function record(kind, apply) {
+  const before = JSON.stringify(state);
+  const { iso, what } = apply();
   save();
   vibrate();
-  toast(savedMsg(sch ? `Toma de las ${sch.time}` : 'Toma', now.toISOString()));
   renderAll();
+  const r = await showConfirm({ kind, title: 'APUNTADO', what, when: fmtWhen(iso), undo: true });
+  if (r === 'undo') {
+    state = JSON.parse(before);
+    save();
+    renderAll();
+    toast('Borrado', false);
+  }
+}
+
+$('#btn-off').addEventListener('click', () => {
+  const cur = activeEpisode('off');
+  if (cur) {
+    showConfirm({ kind: 'info', title: 'YA ESTABA APUNTADO', what: 'Estás en OFF', when: `desde las ${fmtTime(cur.start)} h` });
+    return;
+  }
+  record('off', () => {
+    const start = new Date().toISOString();
+    state.episodes.push({ id: uid(), kind: 'off', start, end: null, intensity: null, symptoms: [], note: '' });
+    return { iso: start, what: 'OFF · me encuentro mal' };
+  });
 });
 
-// Botones de un solo toque: guardan al momento con día y hora.
-$$('[data-event]').forEach(b => b.addEventListener('click', async () => {
-  const [type, sym] = b.dataset.event.split(':');
-  const time = new Date().toISOString();
-  let ev;
-  if (type === 'note') {
-    const r = await openDialog(
-      `<h3>📝 Nota</h3><label class="f"><span>Cualquier cosa que quieras recordar para la consulta</span><textarea name="note" required placeholder="Ej.: mala noche, estreñimiento, mareo al levantarse…"></textarea></label>`,
-      [{ label: 'Guardar nota', value: 'ok', cls: 'primary' }, { label: 'Cancelar', value: 'cancel' }]);
-    if (r === 'cancel') return;
-    const note = $('#dlg-form [name=note]').value.trim();
-    if (!note) return;
-    ev = { id: uid(), type, time, note };
-  } else if (type === 'meal' || type === 'mealp') {
-    ev = { id: uid(), type: 'meal', time, note: '', protein: type === 'mealp' };
-  } else if (type === 'sym') {
-    ev = { id: uid(), type: 'symptom', symptom: sym, time, note: '' };
-  } else {
-    ev = { id: uid(), type, time, note: '' };
+$('#btn-on').addEventListener('click', () => {
+  const cur = activeEpisode('off');
+  if (!cur) {
+    showConfirm({ kind: 'info', title: 'YA ESTÁS EN ON', what: 'No había ningún OFF apuntado. No hace falta hacer nada.' });
+    return;
   }
-  snapshot();
-  state.events.push(ev);
-  save();
-  vibrate();
-  toast(savedMsg(eventInfo(ev).label, time));
-  renderAll();
-}));
+  record('on', () => {
+    cur.end = new Date().toISOString();
+    return { iso: cur.end, what: `ON · el OFF ha durado ${fmtDur(epDuration(cur))}` };
+  });
+});
+
+$('#btn-dose').addEventListener('click', async () => {
+  const last = [...state.doses].sort((a, b) => b.time.localeCompare(a.time))[0];
+  if (last && (Date.now() - new Date(last.time)) < 20 * MIN) {
+    const r = await showConfirm({ kind: 'pill', title: '¿OTRA PASTILLA?', what: `Ya apuntaste una a las ${fmtTime(last.time)} h`, ask: true });
+    if (r !== 'ok') return;
+  }
+  record('pill', () => {
+    const now = new Date();
+    const sch = closestScheduled(now);
+    state.doses.push({ id: uid(), time: now.toISOString(), med: sch ? sch.med : '', scheduled: sch ? sch.time : null });
+    return { iso: now.toISOString(), what: 'PASTILLA tomada' };
+  });
+});
+
+$('#btn-fall').addEventListener('click', () => {
+  record('fall', () => {
+    const time = new Date().toISOString();
+    state.events.push({ id: uid(), type: 'fall', time, note: '' });
+    return { iso: time, what: 'CAÍDA' };
+  });
+});
 
 function renderToday() {
   const off = activeEpisode('off');
-  const dysk = activeEpisode('dysk');
-  const st = $('#status');
-  st.className = 'status ' + (off ? 'off' : 'on');
-  $('#status-state').textContent = off ? 'OFF' : 'ON';
-  if (off) {
-    $('#status-since').textContent = `desde las ${fmtTime(off.start)} · ${fmtDur(epDuration(off))}`;
-  } else {
-    const last = [...state.episodes].filter(e => e.kind === 'off' && e.end).sort((a, b) => b.end.localeCompare(a.end))[0];
-    $('#status-since').textContent = last ? `Último OFF terminó a las ${fmtTime(last.end)}${dayKey(last.end) !== dayKey(new Date()) ? ' (' + fmtDay(dayKey(last.end), { weekday: 'long' }) + ')' : ''}` : 'Pulsa el botón rojo cuando empiece un OFF';
-  }
-
-  const btn = $('#btn-off');
-  btn.className = 'btn-huge ' + (off ? 'end-off' : 'start-off');
-  btn.innerHTML = off
-    ? 'Ya estoy bien (ON)<small>Pulsa cuando vuelva a moverse con normalidad</small>'
-    : 'Empieza un OFF<small>Pulsa en cuanto note el bajón</small>';
-
-  // Detalles del OFF en curso
-  const det = $('#off-details');
-  det.hidden = !off;
-  if (off) {
-    $('#cur-intensity').innerHTML = Object.entries(INTENSITY).map(([k, l]) =>
-      `<button type="button" class="chip" data-k="${k}" aria-pressed="${String(off.intensity) === k}">${l}</button>`).join('');
-    $$('#cur-intensity .chip').forEach(c => c.addEventListener('click', () => {
-      off.intensity = Number(c.dataset.k);
-      save();
-      renderToday();
-    }));
-    $('#cur-symptoms').innerHTML = SYMPTOMS.map(([k, l]) =>
-      `<button type="button" class="chip" data-k="${k}" aria-pressed="${off.symptoms.includes(k)}">${l}</button>`).join('');
-    $$('#cur-symptoms .chip').forEach(c => c.addEventListener('click', () => {
-      const k = c.dataset.k;
-      off.symptoms = off.symptoms.includes(k) ? off.symptoms.filter(x => x !== k) : [...off.symptoms, k];
-      save();
-      renderToday();
-    }));
-  }
-
-  $('#btn-dysk').classList.toggle('active-dysk', !!dysk);
-  $('#dysk-label').textContent = dysk ? `Discinesias · ${fmtDur(epDuration(dysk))} (parar)` : 'Discinesias';
-
-  // Próxima toma
-  const today = dayKey(new Date());
-  const nowMin = minOfDay(new Date().toISOString());
-  const takenToday = state.doses.filter(d => dayKey(d.time) === today);
-  const takenSlots = new Set(takenToday.map(d => d.scheduled));
-  const sched = [...state.settings.schedule].sort((a, b) => a.time.localeCompare(b.time));
-  const pending = sched.filter(s => !takenSlots.has(s.time));
-  const next = pending.find(s => timeToMin(s.time) >= nowMin - 30);
-  const lastDose = [...state.doses].sort((a, b) => b.time.localeCompare(a.time))[0];
-  let txt = '';
-  if (lastDose) txt += `Última toma: ${fmtTime(lastDose.time)}${dayKey(lastDose.time) !== today ? ' (ayer o antes)' : ''}. `;
-  if (next) {
-    const diff = timeToMin(next.time) - nowMin;
-    txt += diff >= 0 ? `Próxima: ${next.time} (en ${fmtDur(diff)})` : `Toca la de las ${next.time}`;
-  }
-  $('#next-dose').textContent = txt;
-
-  // KPIs de hoy
-  const a = dayStart(today);
-  const b = dayStart(addDays(today, 1));
-  const offs = state.episodes.filter(e => e.kind === 'off');
-  const offMin = offs.reduce((s, e) => s + overlapMin(e, a, b), 0);
-  const offCount = offs.filter(e => dayKey(e.start) === today).length;
-  const dyskMin = state.episodes.filter(e => e.kind === 'dysk').reduce((s, e) => s + overlapMin(e, a, b), 0);
-  $('#today-kpis').innerHTML = [
-    ['Tiempo en OFF', fmtDur(offMin)],
-    ['Nº de OFF', offCount],
-    ['Tomas', `${takenToday.length} / ${sched.length}`],
-    ['Discinesias', fmtDur(dyskMin)],
-  ].map(([k, v]) => `<div class="kpi"><div class="v">${v}</div><div class="k">${k}</div></div>`).join('');
-
-  renderTimeline($('#today-timeline'), today);
-
-  // Lista de lo registrado hoy, con la hora
-  const recs = allRecords().filter(r => dayKey(r.t) === today || (r.rtype === 'ep' && r.obj.end && dayKey(r.obj.end) === today));
-  $('#today-list').innerHTML = recs.length
-    ? recs.map(r => { const d = describe(r); return `<button class="entry" data-rtype="${r.rtype}" data-id="${r.obj.id}">${d.tag}<div class="body"><div class="t">${d.t}</div>${d.s ? `<div class="s">${d.s}</div>` : ''}</div></button>`; }).join('')
-    : '<p class="muted" style="margin:0">Aún no hay nada apuntado hoy.</p>';
-  $$('#today-list .entry').forEach(b => b.addEventListener('click', () => editRecord(b.dataset.rtype, b.dataset.id)));
+  $('#status').className = 'status ' + (off ? 'off' : 'on');
+  $('#status-date').textContent = cap(fmtDay(dayKey(new Date())));
+  $('#status-state').textContent = off ? 'Ahora: OFF' : 'Ahora: ON';
+  $('#status-since').textContent = off
+    ? `desde las ${fmtTime(off.start)} h (${fmtDur(epDuration(off))})`
+    : 'Si nota el bajón, pulse OFF';
 }
 
 function renderTimeline(el, key) {
@@ -580,12 +535,9 @@ async function editRecord(rtype, id, isNew = false, draft = null) {
 
 $('#btn-add-past').addEventListener('click', async () => {
   const r = await openDialog('<h3>¿Qué quieres añadir?</h3><p class="muted small">Por ejemplo, un OFF de esta mañana que no se apuntó en el momento.</p>', [
-    { label: 'Periodo OFF', value: 'off', cls: 'primary' },
-    { label: 'Discinesias', value: 'dysk' },
-    { label: '💊 Toma', value: 'dose' },
-    { label: '🍽️ Comida', value: 'meal' },
+    { label: '🔴 Periodo OFF', value: 'off', cls: 'primary' },
+    { label: '💊 Pastilla', value: 'dose' },
     { label: '⚠️ Caída', value: 'fall' },
-    ...Object.entries(QUICK_SYMPTOMS).map(([k, v]) => ({ label: `${v.icon} ${v.label}`, value: 'sym:' + k })),
     { label: '📝 Nota', value: 'note' },
     { label: 'Cancelar', value: 'cancel' },
   ]);
@@ -968,7 +920,9 @@ function statsContent(s, { forReport = false } = {}) {
     [s.medLatency != null ? fmtDur(s.medLatency) : '—', 'Toma → OFF (mediana)', 'tiempo desde la última toma'],
     [s.morningDays + ' / ' + s.nRec, 'Días con OFF matutino', 'antes de la 1.ª toma'],
     [s.medTimeToOn != null ? fmtDur(s.medTimeToOn) : '—', 'Toma → vuelve a ON', 'cuando se toma en OFF'],
-    [fmtHours(s.dyskTotal / s.nRec), 'Discinesias al día', `${s.dysks.length} episodios`],
+    s.dysks.length
+      ? [fmtHours(s.dyskTotal / s.nRec), 'Discinesias al día', `${s.dysks.length} episodios`]
+      : [(s.dosesTaken / s.nRec).toFixed(1).replace('.', ','), 'Pastillas al día', `${s.dosesTaken} en total`],
     [String(s.falls), 'Caídas', s.fallsInOff ? `${s.fallsInOff} durante OFF` : '—'],
   ].map(([v, k, d]) => `<div class="kpi"><div class="v">${v}</div><div class="k">${k}</div><div class="d">${d}</div></div>`).join('');
   frag.appendChild(kp);
@@ -1239,9 +1193,7 @@ function generateDemo() {
       state.doses.push({ id: uid(), time: t.toISOString(), med: s.med, scheduled: s.time });
     }
     // Comida
-    const lunch = at(k, 14 * 60 + between(0, 40));
     const protein = rnd() < 0.45;
-    if (lunch < now) state.events.push({ id: uid(), type: 'meal', time: lunch.toISOString(), note: '', protein });
     const addOff = (start, end, extra = {}) => {
       if (start > now) return;
       const syms = SYMPTOMS.map(x => x[0]).filter(() => rnd() < 0.25);
@@ -1267,11 +1219,6 @@ function generateDemo() {
         const e = next ? new Date(next.getTime() + between(25, 60) * MIN) : new Date(s.getTime() + between(40, 90) * MIN);
         if (e > s) addOff(s, e);
       }
-      // Discinesias de pico de dosis
-      if (rnd() < (improved ? 0.35 : 0.2)) {
-        const s = new Date(doseTimes[d].getTime() + between(50, 100) * MIN);
-        if (s < now) state.episodes.push({ id: uid(), kind: 'dysk', start: s.toISOString(), end: new Date(s.getTime() + between(20, 50) * MIN).toISOString(), intensity: null, symptoms: [], note: '' });
-      }
     }
     if (rnd() < 0.05) {
       const off = state.episodes.filter(e => e.kind === 'off' && dayKey(e.start) === k && e.end)[0];
@@ -1294,14 +1241,19 @@ function renderAll() {
   if (currentView === 'report') renderReport();
 }
 
-$$('nav.tabs button').forEach(b => b.addEventListener('click', () => {
-  currentView = b.dataset.view;
-  $$('nav.tabs button').forEach(x => x.setAttribute('aria-selected', String(x === b)));
-  $$('.view').forEach(v => v.classList.toggle('active', v.id === 'view-' + currentView));
+function showView(view) {
+  currentView = view;
+  // En la pantalla de botones no se ve el menú, para que no se pulse sin querer
+  document.body.classList.toggle('family', view !== 'today');
+  if (view === 'today') $('#toast').classList.remove('show');
+  $$('nav.tabs button').forEach(x => x.setAttribute('aria-selected', String(x.dataset.view === view)));
+  $$('.view').forEach(v => v.classList.toggle('active', v.id === 'view-' + view));
   hideTip();
   window.scrollTo(0, 0);
   renderAll();
-}));
+}
+$$('nav.tabs button').forEach(b => b.addEventListener('click', () => showView(b.dataset.view)));
+$('#btn-family').addEventListener('click', () => showView('history'));
 
 document.addEventListener('click', e => { if (!e.target.closest('.chart')) hideTip(); });
 setInterval(() => { if (currentView === 'today') renderToday(); }, 30000);
